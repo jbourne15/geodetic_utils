@@ -13,6 +13,8 @@
 #include <geodetic_utils/geodetic_conv.hpp>
 #include <std_msgs/Float64.h>
 #include <tf/transform_broadcaster.h>
+#include <random>
+#include <chrono>
 
 bool g_is_sim;
 bool g_publish_pose;
@@ -22,12 +24,20 @@ sensor_msgs::Imu g_latest_imu_msg;
 std_msgs::Float64 g_latest_altitude_msg;
 bool g_got_imu;
 bool g_got_altitude;
+// std::mt19937 generator;
+// std::normal_distribution<double> Gsampler;
 
 ros::Publisher g_gps_pose_pub;
 ros::Publisher g_gps_transform_pub;
 ros::Publisher g_gps_position_pub;
 
 bool g_trust_gps;
+// bool add_noise;
+// double noiseCov;
+// double noiseX;
+// double noiseY;
+// double noiseZ;
+
 double g_covariance_position_x;
 double g_covariance_position_y;
 double g_covariance_position_z;
@@ -38,6 +48,8 @@ std::string g_frame_id;
 std::string g_tf_child_frame_id;
 
 std::shared_ptr<tf::TransformBroadcaster> p_tf_broadcaster;
+
+// enif_iuc::AgentHome homeRef;
 
 void imu_callback(const sensor_msgs::ImuConstPtr& msg)
 {
@@ -51,6 +63,10 @@ void altitude_callback(const std_msgs::Float64ConstPtr& msg)
   g_latest_altitude_msg = *msg;
   g_got_altitude = true;
 }
+
+// void home_callback(const enif_iuc::AgentHome &msg){
+  // homeRef = msg;  
+// }
 
 void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
 {
@@ -69,6 +85,8 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
     return;
   }
 
+
+
   double x, y, z;
   g_geodetic_converter.geodetic2Enu(msg->latitude, msg->longitude, msg->altitude, &x, &y, &z);
 
@@ -80,6 +98,19 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
     //z = z;
   }
 
+  // if (add_noise)
+  //   {
+  //   noiseX = Gsampler(generator);
+  //   noiseY = Gsampler(generator);
+  //   noiseZ = Gsampler(generator);
+  //   }
+  // else
+  //   {
+  //     noiseX = 0;
+  //     noiseY = 0;
+  //     noiseZ = 0;
+  //   }
+  
   // Fill up pose message
   geometry_msgs::PoseWithCovarianceStampedPtr pose_msg(
       new geometry_msgs::PoseWithCovarianceStamped);
@@ -132,8 +163,11 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
     }
   }
 
+
+  
   if (g_publish_pose) {
     g_gps_pose_pub.publish(pose_msg);
+    
   }
   g_gps_position_pub.publish(position_msg);
 
@@ -170,7 +204,14 @@ int main(int argc, char **argv) {
   ros::init(argc, argv, "gps_to_pose_conversion_node");
   ros::NodeHandle nh;
   ros::NodeHandle pnh("~");
-
+  
+  // ros::param::param("~add_noise", add_noise, true);
+  // ros::param::param("~noiseCov", noiseCov, 1.0);
+  
+  // Gsampler = std::normal_distribution<double> (0.0,noiseCov);
+  // unsigned seed_time = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+  // generator.seed(seed_time);
+    
   g_got_imu = false;
   g_got_altitude = false;
   p_tf_broadcaster = std::make_shared<tf::TransformBroadcaster>();
@@ -205,7 +246,9 @@ int main(int argc, char **argv) {
                                  g_tf_child_frame_id, "gps_receiver");
 
   // Specify whether to publish pose or not
-  ros::param::param("~publish_pose", g_publish_pose, false);
+  ros::param::param("~publish_pose", g_publish_pose, true);
+
+  std::cout<<"publish pose: "<<g_publish_pose<<std::endl;
 
   // Wait until GPS reference parameters are initialized.
   double latitude, longitude, altitude;
@@ -218,7 +261,7 @@ int main(int argc, char **argv) {
     } else {
       ROS_INFO(
           "GPS reference not ready yet, use set_gps_reference_node to set it");
-      ros::Duration(0.5).sleep(); // sleep for half a second
+      ros::Duration(2.0).sleep(); // sleep for half a second
     }
   } while (!g_geodetic_converter.isInitialised());
 
@@ -231,17 +274,22 @@ int main(int argc, char **argv) {
 
   // Initialize publishers
   g_gps_pose_pub =
-      nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("gps_pose", 1);
+    nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("gps_pose", 1);
   g_gps_transform_pub =
-      nh.advertise<geometry_msgs::TransformStamped>("gps_transform", 1);
+    nh.advertise<geometry_msgs::TransformStamped>("gps_transform", 1);
   g_gps_position_pub =
-      nh.advertise<geometry_msgs::PointStamped>("gps_position", 1);
+    nh.advertise<geometry_msgs::PointStamped>("gps_position", 1);
+
+  std::string agentName = ros::this_node::getNamespace();  
+  agentName.erase(0,1);
+
 
   // Subscribe to IMU and GPS fixes, and convert in GPS callback
-  ros::Subscriber imu_sub = nh.subscribe("imu", 1, &imu_callback);
-  ros::Subscriber gps_sub = nh.subscribe("gps", 1, &gps_callback);
+  ros::Subscriber imu_sub = nh.subscribe(agentName+"/mavros/imu/data", 1, &imu_callback);
+  ros::Subscriber gps_sub = nh.subscribe(agentName+"/mavros/global_position/global", 1, &gps_callback);
+  // ros::Subscriber home_sub = nh.subscribe("agent_home_data", 1, &home_callback);
   ros::Subscriber altitude_sub =
-     nh.subscribe("external_altitude", 1, &altitude_callback);
+    nh.subscribe("external_altitude", 1, &altitude_callback);
 
   ros::spin();
 }
