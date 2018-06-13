@@ -6,6 +6,7 @@
 
 #include <ros/ros.h>
 #include <sensor_msgs/Imu.h>
+#include <sensor_msgs/Range.h>
 #include <sensor_msgs/NavSatFix.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/TransformStamped.h>
@@ -18,6 +19,8 @@
 
 bool g_is_sim;
 bool g_publish_pose;
+sensor_msgs::Range height;
+bool newHeightData = false;
 
 geodetic_converter::GeodeticConverter g_geodetic_converter;
 sensor_msgs::Imu g_latest_imu_msg;
@@ -30,6 +33,7 @@ bool g_got_altitude;
 ros::Publisher g_gps_pose_pub;
 ros::Publisher g_gps_transform_pub;
 ros::Publisher g_gps_position_pub;
+;
 
 bool g_trust_gps;
 // bool add_noise;
@@ -67,6 +71,12 @@ void altitude_callback(const std_msgs::Float64ConstPtr& msg)
 // void home_callback(const enif_iuc::AgentHome &msg){
   // homeRef = msg;  
 // }
+
+void dist_callback(const sensor_msgs::Range &msg){
+  height = msg;
+  newHeightData = true;
+  ROS_INFO_ONCE("using external height in geodetic node!");
+}
 
 void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
 {
@@ -132,6 +142,10 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
   if (g_got_altitude) {
     pose_msg->pose.pose.position.z = g_latest_altitude_msg.data;
     position_msg->point.z = g_latest_altitude_msg.data;
+  }
+  else if (newHeightData){
+    pose_msg->pose.pose.position.z = height.range;
+    position_msg->point.z = height.range;
   }
 
   pose_msg->pose.covariance.assign(0);
@@ -287,6 +301,7 @@ int main(int argc, char **argv) {
   // Subscribe to IMU and GPS fixes, and convert in GPS callback
   ros::Subscriber imu_sub = nh.subscribe(agentName+"/mavros/imu/data", 1, &imu_callback);
   ros::Subscriber gps_sub = nh.subscribe(agentName+"/mavros/global_position/global", 1, &gps_callback);
+  ros::Subscriber dist_sub = nh.subscribe("/mavros/distance_sensor/lidarlite_pub", 1, &dist_callback);
   // ros::Subscriber home_sub = nh.subscribe("agent_home_data", 1, &home_callback);
   ros::Subscriber altitude_sub =
     nh.subscribe("external_altitude", 1, &altitude_callback);
