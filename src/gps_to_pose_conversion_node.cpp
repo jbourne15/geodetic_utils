@@ -262,7 +262,7 @@ int main(int argc, char **argv) {
   // Specify whether to publish pose or not
   ros::param::param("~publish_pose", g_publish_pose, true);
 
-  std::cout<<"publish pose: "<<g_publish_pose<<std::endl;
+  std::cout<<"publish pose: "<<g_publish_pose<<std::endl;    
 
   // Wait until GPS reference parameters are initialized.
   double latitude, longitude, altitude;
@@ -294,14 +294,14 @@ int main(int argc, char **argv) {
   g_gps_position_pub =
     nh.advertise<geometry_msgs::PointStamped>("gps_position", 1);
 
-  std::string agentName = ros::this_node::getNamespace();  
+  std::string agentName = ros::this_node::getNamespace();
   agentName.erase(0,1);
 
 
   // Subscribe to IMU and GPS fixes, and convert in GPS callback
   ros::Subscriber imu_sub = nh.subscribe(agentName+"/mavros/imu/data", 1, &imu_callback);
   ros::Subscriber gps_sub = nh.subscribe(agentName+"/mavros/global_position/global", 1, &gps_callback);
-  ros::Subscriber dist_sub = nh.subscribe("/mavros/distance_sensor/lidarlite_pub", 1, &dist_callback);
+  ros::Subscriber dist_sub = nh.subscribe(agentName+"/mavros/distance_sensor/lidarlite_pub", 1, &dist_callback);
   // ros::Subscriber home_sub = nh.subscribe("agent_home_data", 1, &home_callback);
   ros::Subscriber altitude_sub =
     nh.subscribe("external_altitude", 1, &altitude_callback);
