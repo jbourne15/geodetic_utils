@@ -17,6 +17,8 @@
 #include <random>
 #include <chrono>
 
+
+
 bool g_is_sim;
 bool g_publish_pose;
 sensor_msgs::Range height;
@@ -41,6 +43,8 @@ bool g_trust_gps;
 // double noiseX;
 // double noiseY;
 // double noiseZ;
+
+double H_latitude, H_longitude, H_altitude;
 
 double g_covariance_position_x;
 double g_covariance_position_y;
@@ -80,6 +84,7 @@ void dist_callback(const sensor_msgs::Range &msg){
 
 void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
 {
+  
   if (!g_got_imu) {
     ROS_WARN_STREAM_THROTTLE(1, "No IMU data yet");
     return;
@@ -215,6 +220,7 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
 }
 
 int main(int argc, char **argv) {
+
   ros::init(argc, argv, "gps_to_pose_conversion_node");
   ros::NodeHandle nh;
   ros::NodeHandle pnh("~");
@@ -265,13 +271,13 @@ int main(int argc, char **argv) {
   std::cout<<"publish pose: "<<g_publish_pose<<std::endl;    
 
   // Wait until GPS reference parameters are initialized.
-  double latitude, longitude, altitude;
+  //  double latitude, longitude, altitude;
   do {
     ROS_INFO("Waiting for GPS reference parameters...");
-    if (nh.getParam("/gps_ref_latitude", latitude) &&
-        nh.getParam("/gps_ref_longitude", longitude) &&
-        nh.getParam("/gps_ref_altitude", altitude)) {
-      g_geodetic_converter.initialiseReference(latitude, longitude, altitude);
+    if (nh.getParam("/gps_ref_latitude", H_latitude) &&
+        nh.getParam("/gps_ref_longitude", H_longitude) &&
+        nh.getParam("/gps_ref_altitude", H_altitude)) {
+      g_geodetic_converter.initialiseReference(H_latitude, H_longitude, H_altitude);
     } else {
       ROS_INFO(
           "GPS reference not ready yet, use set_gps_reference_node to set it");
@@ -306,5 +312,21 @@ int main(int argc, char **argv) {
   ros::Subscriber altitude_sub =
     nh.subscribe("external_altitude", 1, &altitude_callback);
 
-  ros::spin();
+  while (ros::ok()){
+    double latitude, longitude, altitude;
+    nh.getParam("/gps_ref_latitude", latitude);
+    nh.getParam("/gps_ref_longitude", longitude);
+    nh.getParam("/gps_ref_altitude", altitude);
+
+    //std::cout<<"lat: "<<latitude<<", "<<H_latitude<<", long: "<<longitude<<", "<<H_longitude<<std::endl;
+    
+    if (latitude != H_latitude || longitude != H_longitude){
+      g_geodetic_converter.initialiseReference(latitude, longitude, altitude);
+      ROS_WARN("[geo] got home data, reseting target");
+      H_latitude = latitude;
+      H_longitude = longitude;
+    }
+    ros::spinOnce();
+  }
+
 }
