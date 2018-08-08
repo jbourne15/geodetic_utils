@@ -283,7 +283,7 @@ int main(int argc, char **argv) {
           "GPS reference not ready yet, use set_gps_reference_node to set it");
       ros::Duration(2.0).sleep(); // sleep for half a second
     }
-  } while (!g_geodetic_converter.isInitialised());
+  } while (!g_geodetic_converter.isInitialised() && ros::ok());
 
   // Show reference point
   double initial_latitude, initial_longitude, initial_altitude;
@@ -303,7 +303,6 @@ int main(int argc, char **argv) {
   std::string agentName = ros::this_node::getNamespace();
   agentName.erase(0,1);
 
-
   // Subscribe to IMU and GPS fixes, and convert in GPS callback
   ros::Subscriber imu_sub = nh.subscribe(agentName+"/mavros/imu/data", 1, &imu_callback);
   ros::Subscriber gps_sub = nh.subscribe(agentName+"/mavros/global_position/global", 1, &gps_callback);
@@ -312,6 +311,8 @@ int main(int argc, char **argv) {
   ros::Subscriber altitude_sub =
     nh.subscribe("external_altitude", 1, &altitude_callback);
 
+
+  // this continually pulls new home params if there is a new is set
   while (ros::ok()){
     double latitude, longitude, altitude;
     nh.getParam("/gps_ref_latitude", latitude);
