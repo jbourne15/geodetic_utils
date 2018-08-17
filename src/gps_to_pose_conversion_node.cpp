@@ -35,7 +35,6 @@ bool g_got_altitude;
 ros::Publisher g_gps_pose_pub;
 ros::Publisher g_gps_transform_pub;
 ros::Publisher g_gps_position_pub;
-;
 
 bool g_trust_gps;
 // bool add_noise;
@@ -84,15 +83,16 @@ void dist_callback(const sensor_msgs::Range &msg){
 
 void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
 {
-  
+
+  //ROS_INFO_THROTTLE(1, "GOT GPS DATA");
   if (!g_got_imu) {
     ROS_WARN_STREAM_THROTTLE(1, "No IMU data yet");
-    return;
+    //return;
   }
 
   if (msg->status.status < sensor_msgs::NavSatStatus::STATUS_FIX) {
     ROS_WARN_STREAM_THROTTLE(1, "No GPS fix");
-    return;
+    //return;
   }
 
   if (!g_geodetic_converter.isInitialised()) {
@@ -183,11 +183,12 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
   }
 
 
+  g_gps_pose_pub.publish(pose_msg);
+  //  if (g_publish_pose) {
+  //    std::cout<<pose_msg<<std::endl;
+  //    g_gps_pose_pub.publish(pose_msg);    
+  //  }
   
-  if (g_publish_pose) {
-    g_gps_pose_pub.publish(pose_msg);
-    
-  }
   g_gps_position_pub.publish(position_msg);
 
   // Fill up transform message
@@ -207,16 +208,18 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
   g_gps_transform_pub.publish(transform_msg);
 
   // Fill up TF broadcaster
-  tf::Transform transform;
-  transform.setOrigin(tf::Vector3(x, y, z));
-  transform.setRotation(tf::Quaternion(g_latest_imu_msg.orientation.x,
+  if (g_got_imu){
+    tf::Transform transform;
+    transform.setOrigin(tf::Vector3(x, y, z));
+    transform.setRotation(tf::Quaternion(g_latest_imu_msg.orientation.x,
                                        g_latest_imu_msg.orientation.y,
                                        g_latest_imu_msg.orientation.z,
                                        g_latest_imu_msg.orientation.w));
-  p_tf_broadcaster->sendTransform(tf::StampedTransform(transform,
+    p_tf_broadcaster->sendTransform(tf::StampedTransform(transform,
                                                        ros::Time::now(),
                                                        g_frame_id,
                                                        g_tf_child_frame_id));
+  }
 }
 
 int main(int argc, char **argv) {
