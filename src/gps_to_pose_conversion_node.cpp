@@ -144,14 +144,15 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
   position_msg->point = pose_msg->pose.pose.position;
 
   // If external altitude messages received, include in pose and position messages
-  if (g_got_altitude) {
-    pose_msg->pose.pose.position.z = g_latest_altitude_msg.data;
-    position_msg->point.z = g_latest_altitude_msg.data;
-  }
-  else if (newHeightData){
+  if (newHeightData){
     pose_msg->pose.pose.position.z = height.range;
     position_msg->point.z = height.range;
   }
+  else if (g_got_altitude) {
+    pose_msg->pose.pose.position.z = g_latest_altitude_msg.data;
+    position_msg->point.z = g_latest_altitude_msg.data;
+  }
+
 
   pose_msg->pose.covariance.assign(0);
 
@@ -201,9 +202,13 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
   transform_msg->transform.translation.z = z;
   transform_msg->transform.rotation = g_latest_imu_msg.orientation;
 
-  if (g_got_altitude) {
-    transform_msg->transform.translation.z = g_latest_altitude_msg.data;
+  if (newHeightData) {
+    transform_msg->transform.translation.z = height.range;
   }
+  else if (g_got_altitude){
+    transform_msg->transform.translation.z = g_latest_altitude_msg.data;    
+  }
+
 
   g_gps_transform_pub.publish(transform_msg);
 
