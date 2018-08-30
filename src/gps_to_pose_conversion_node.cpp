@@ -183,13 +183,7 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
     }
   }
 
-
-  g_gps_pose_pub.publish(pose_msg);
-  //  if (g_publish_pose) {
-  //    std::cout<<pose_msg<<std::endl;
-  //    g_gps_pose_pub.publish(pose_msg);    
-  //  }
-  
+  g_gps_pose_pub.publish(pose_msg);  
   g_gps_position_pub.publish(position_msg);
 
   // Fill up transform message
@@ -202,29 +196,26 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
   transform_msg->transform.translation.z = z;
   transform_msg->transform.rotation = g_latest_imu_msg.orientation;
 
-  if (newHeightData) {
-    transform_msg->transform.translation.z = height.range;
-  }
-  else if (g_got_altitude){
-    transform_msg->transform.translation.z = g_latest_altitude_msg.data;    
-  }
-
-
   g_gps_transform_pub.publish(transform_msg);
 
   // Fill up TF broadcaster
-  if (g_got_imu && newHeightData){
+  if (g_got_imu){
     tf::Transform transform;
-    transform.setOrigin(tf::Vector3(x, y, height.range));
     transform.setRotation(tf::Quaternion(g_latest_imu_msg.orientation.x,
-                                       g_latest_imu_msg.orientation.y,
-                                       g_latest_imu_msg.orientation.z,
-                                       g_latest_imu_msg.orientation.w));
+					 g_latest_imu_msg.orientation.y,
+					 g_latest_imu_msg.orientation.z,
+					 g_latest_imu_msg.orientation.w));
+    if (newHeightData) {
+      transform.setOrigin(tf::Vector3(x, y, height.range));	
+    }
+    else{
+       transform.setOrigin(tf::Vector3(x, y, z));	
+    }
     p_tf_broadcaster->sendTransform(tf::StampedTransform(transform,
-                                                       ros::Time::now(),
-                                                       g_frame_id,
-                                                       g_tf_child_frame_id));
-  }
+							 ros::Time::now(),
+							 g_frame_id,
+							 g_tf_child_frame_id));
+  }   
 }
 
 int main(int argc, char **argv) {
