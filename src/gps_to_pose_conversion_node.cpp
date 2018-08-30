@@ -213,9 +213,9 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
   g_gps_transform_pub.publish(transform_msg);
 
   // Fill up TF broadcaster
-  if (g_got_imu){
+  if (g_got_imu && newHeightData){
     tf::Transform transform;
-    transform.setOrigin(tf::Vector3(x, y, z));
+    transform.setOrigin(tf::Vector3(x, y, height.range));
     transform.setRotation(tf::Quaternion(g_latest_imu_msg.orientation.x,
                                        g_latest_imu_msg.orientation.y,
                                        g_latest_imu_msg.orientation.z,
