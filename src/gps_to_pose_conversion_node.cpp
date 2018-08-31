@@ -310,13 +310,12 @@ int main(int argc, char **argv) {
   ros::Subscriber altitude_sub =
     nh.subscribe("external_altitude", 1, &altitude_callback);
 
-
   // this continually pulls new home params if there is a new is set
   while (ros::ok()){
     double latitude, longitude, altitude;
     nh.getParam("/gps_ref_latitude", latitude);
     nh.getParam("/gps_ref_longitude", longitude);
-    nh.getParam("/gps_ref_altitude", altitude);
+    //nh.getParam("/gps_ref_altitude", altitude);
 
     //std::cout<<"lat: "<<latitude<<", "<<H_latitude<<", long: "<<longitude<<", "<<H_longitude<<std::endl;
     
