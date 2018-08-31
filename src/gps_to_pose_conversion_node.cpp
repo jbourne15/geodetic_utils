@@ -320,7 +320,7 @@ int main(int argc, char **argv) {
     //std::cout<<"lat: "<<latitude<<", "<<H_latitude<<", long: "<<longitude<<", "<<H_longitude<<std::endl;
     
     if (latitude != H_latitude || longitude != H_longitude){
-      g_geodetic_converter.initialiseReference(latitude, longitude, altitude);
+      g_geodetic_converter.initialiseReference(latitude, longitude, H_altitude);
       ROS_WARN("[geo] got home data, reseting target");
       H_latitude = latitude;
       H_longitude = longitude;
