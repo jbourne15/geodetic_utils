@@ -9,6 +9,7 @@
 #include <sensor_msgs/Range.h>
 #include <sensor_msgs/NavSatFix.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
+#include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <geometry_msgs/PointStamped.h>
 #include <geodetic_utils/geodetic_conv.hpp>
@@ -35,6 +36,7 @@ bool g_got_altitude;
 ros::Publisher g_gps_pose_pub;
 ros::Publisher g_gps_transform_pub;
 ros::Publisher g_gps_position_pub;
+ros::Publisher coptVis_pub;   
 
 bool g_trust_gps;
 // bool add_noise;
@@ -137,22 +139,23 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
   pose_msg->pose.pose.orientation = g_latest_imu_msg.orientation;
 
   // Fill up position message
-  geometry_msgs::PointStampedPtr position_msg(
-    new geometry_msgs::PointStamped);
-  position_msg->header = pose_msg->header;
-  position_msg->header.frame_id = g_frame_id;
-  position_msg->point = pose_msg->pose.pose.position;
-
+  //  geometry_msgs::PoseStampedPtr position_msg(
+  //    new geometry_msgs::PoseStamped);
+  geometry_msgs::PoseStamped position_msg;
+  position_msg.header = pose_msg->header;
+  position_msg.header.frame_id = g_frame_id;
+  position_msg.pose.position = pose_msg->pose.pose.position;
+  position_msg.pose.orientation = pose_msg->pose.pose.orientation;
+  
   // If external altitude messages received, include in pose and position messages
   if (newHeightData){
     pose_msg->pose.pose.position.z = height.range;
-    position_msg->point.z = height.range;
+    position_msg.pose.position.z = height.range;
   }
   else if (g_got_altitude) {
     pose_msg->pose.pose.position.z = g_latest_altitude_msg.data;
-    position_msg->point.z = g_latest_altitude_msg.data;
+    position_msg.pose.position.z = g_latest_altitude_msg.data;
   }
-
 
   pose_msg->pose.covariance.assign(0);
 
@@ -183,7 +186,7 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
     }
   }
 
-  g_gps_pose_pub.publish(pose_msg);  
+  g_gps_pose_pub.publish(pose_msg);
   g_gps_position_pub.publish(position_msg);
 
   // Fill up transform message
@@ -297,7 +300,9 @@ int main(int argc, char **argv) {
   g_gps_transform_pub =
     nh.advertise<geometry_msgs::TransformStamped>("gps_transform", 1);
   g_gps_position_pub =
-    nh.advertise<geometry_msgs::PointStamped>("gps_position", 1);
+    nh.advertise<geometry_msgs::PoseStamped>("local_position", 1);
+  
+  //  coptVis_pub = nh.advertise<geometry_msgs::PoseStamped>("local_position", 1);
 
   std::string agentName = ros::this_node::getNamespace();
   agentName.erase(0,1);
