@@ -19,7 +19,6 @@
 #include <chrono>
 
 
-
 bool g_is_sim;
 bool g_publish_pose;
 sensor_msgs::Range height;
@@ -36,7 +35,6 @@ bool g_got_altitude;
 ros::Publisher g_gps_pose_pub;
 ros::Publisher g_gps_transform_pub;
 ros::Publisher g_gps_position_pub;
-ros::Publisher coptVis_pub;   
 
 bool g_trust_gps;
 // bool add_noise;
@@ -186,8 +184,6 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
     }
   }
 
-  g_gps_pose_pub.publish(pose_msg);
-  g_gps_position_pub.publish(position_msg);
 
   // Fill up transform message
   geometry_msgs::TransformStampedPtr transform_msg(
@@ -200,6 +196,8 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
   transform_msg->transform.rotation = g_latest_imu_msg.orientation;
 
   g_gps_transform_pub.publish(transform_msg);
+  g_gps_pose_pub.publish(pose_msg);
+  g_gps_position_pub.publish(position_msg); //local_position publisher
 
   // Fill up TF broadcaster
   if (g_got_imu){
@@ -294,15 +292,15 @@ int main(int argc, char **argv) {
   ROS_INFO("GPS reference initialized correctly %f, %f, %f", initial_latitude,
            initial_longitude, initial_altitude);
 
+
   // Initialize publishers
   g_gps_pose_pub =
     nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("gps_pose", 1);
   g_gps_transform_pub =
     nh.advertise<geometry_msgs::TransformStamped>("gps_transform", 1);
   g_gps_position_pub =
-    nh.advertise<geometry_msgs::PoseStamped>("local_position", 1);
+      nh.advertise<geometry_msgs::PoseStamped>("local_position", 1);  
   
-  //  coptVis_pub = nh.advertise<geometry_msgs::PoseStamped>("local_position", 1);
 
   std::string agentName = ros::this_node::getNamespace();
   agentName.erase(0,1);

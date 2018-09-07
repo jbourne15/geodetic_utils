@@ -15,6 +15,9 @@ target_link_libraries(set_gps_reference_node  ${catkin_LIBRARIES})
 cs_add_executable(gps_to_pose_conversion_node src/gps_to_pose_conversion_node.cpp)
 #target_link_libraries(gps_to_pose_conversion_node  ${catkin_LIBRARIES})
 
+cs_add_executable(pub_local src/pub_local.cpp)
+target_link_libraries(pub_local  ${catkin_LIBRARIES})
+
 cs_install()
 cs_install_scripts(src/euler_radians_to_degrees.py)
 cs_export()
