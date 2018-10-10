@@ -204,26 +204,22 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
     // tf::Transform transformC;
     // transformC.setOrigin(tf::Vector3(0, 0, 0));
     // double yaw = tf::getYaw(tf::Quaternion(g_latest_imu_msg.orientation.x,
-    // 					   g_latest_imu_msg.orientation.y,
-    // 					   g_latest_imu_msg.orientation.z,
-    // 					   g_latest_imu_msg.orientation.w));
+    					   // g_latest_imu_msg.orientation.y,
+    					   // g_latest_imu_msg.orientation.z,
+    					   // g_latest_imu_msg.orientation.w));
     
     // tf::Quaternion cur_ori = tf::createQuaternionFromYaw(yaw);
     // transformC.setRotation(cur_ori);
     // p_tf_broadcaster->sendTransform(tf::StampedTransform(transformC,
-    // 							 ros::Time::now(),
-    // 							 g_frame_id,
-    // 							 g_tf_child_frame_id+"cFrame"));
+    							 // ros::Time::now(),
+    							 // g_frame_id,
+    							 // g_tf_child_frame_id+"cFrame"));
 
-    Eigen::Quaterniond qAtt_(g_latest_imu_msg.orientation.w, g_latest_imu_msg.orientation.x, g_latest_imu_msg.orientation.y, g_latest_imu_msg.orientation.z);
-
-    Eigen::Matrix3d R = qAtt_.normalized().toRotationMatrix();
-    Eigen::Vector3d ht(0, 0, 3);
-
-    std::cout<<""<<std::endl;    
-    std::cout<<R<<std::endl;
-    std::cout<<R.transpose()*ht<<std::endl;    
-    std::cout<<""<<std::endl;
+    tf::Transform transformC;
+    transformC.setRotation(tf::Quaternion(g_latest_imu_msg.orientation.x,
+					 g_latest_imu_msg.orientation.y,
+					 g_latest_imu_msg.orientation.z,
+					 g_latest_imu_msg.orientation.w));
 
     
     tf::Transform transform;
@@ -233,8 +229,21 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
 					 g_latest_imu_msg.orientation.w));
 
     if (newHeightData) {
-      transform.setOrigin(tf::Vector3(x, y, height.range));      
+      // transform.setOrigin(tf::Vector3(x, y, height.range));
+      transform.setOrigin(tf::Vector3(0, 0, height.range));
+
+      Eigen::Quaterniond qAtt_(g_latest_imu_msg.orientation.w, g_latest_imu_msg.orientation.x, g_latest_imu_msg.orientation.y, g_latest_imu_msg.orientation.z);
+
+      Eigen::Matrix3d R = qAtt_.normalized().toRotationMatrix();
+      Eigen::Vector3d ht(0, 0, height.range);
+      Eigen::Vector3d zz(0,0,1);
+
+      std::cout<<""<<std::endl;    
+      std::cout<<R<<std::endl;
+      std::cout<<(R.transpose()*ht).dot(zz)<<std::endl;    
+      std::cout<<""<<std::endl;
       
+      transformC.setOrigin(tf::Vector3(0, 0, (R.transpose()*ht).dot(zz)));
     }
     else{
        transform.setOrigin(tf::Vector3(x, y, z));	
@@ -243,6 +252,12 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
 							 ros::Time::now(),
 							 g_frame_id,
 							 g_tf_child_frame_id));
+
+    p_tf_broadcaster->sendTransform(tf::StampedTransform(transformC,
+    							 ros::Time::now(),
+    							 g_frame_id,
+    							 g_tf_child_frame_id+"cFrame"));
+
   }
 }
 
