@@ -12,21 +12,27 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <geometry_msgs/PointStamped.h>
+#include <geometry_msgs/TwistStamped.h>
 #include <geodetic_utils/geodetic_conv.hpp>
 #include <std_msgs/Float64.h>
 #include <tf/transform_broadcaster.h>
 #include <random>
 #include <chrono>
 
+#include <mavros_msgs/HomePosition.h>
 
 bool g_is_sim;
 bool g_publish_pose;
 sensor_msgs::Range height;
 bool newHeightData = false;
+bool newHomeData   = false;
 
 geodetic_converter::GeodeticConverter g_geodetic_converter;
 sensor_msgs::Imu g_latest_imu_msg;
 std_msgs::Float64 g_latest_altitude_msg;
+mavros_msgs::HomePosition home;
+geometry_msgs::TwistStamped myVel;
+
 bool g_got_imu;
 bool g_got_altitude;
 // std::mt19937 generator;
@@ -35,6 +41,8 @@ bool g_got_altitude;
 ros::Publisher g_gps_pose_pub;
 ros::Publisher g_gps_transform_pub;
 ros::Publisher g_gps_position_pub;
+
+ros::Publisher g_gps_velocity_pub;
 
 bool g_trust_gps;
 // bool add_noise;
@@ -56,7 +64,51 @@ std::string g_tf_child_frame_id;
 
 std::shared_ptr<tf::TransformBroadcaster> p_tf_broadcaster;
 
+double x_wh, y_wh, z_wh; // world to home trans
+
 // enif_iuc::AgentHome homeRef;
+
+void home_callback(const mavros_msgs::HomePosition &msg){
+  if (g_geodetic_converter.isInitialised())
+    {
+      home = msg;
+      newHomeData = true;
+      g_geodetic_converter.geodetic2Enu(msg.geo.latitude, msg.geo.longitude, H_altitude, &x_wh, &y_wh, &z_wh);
+      // std::cout<<"x_wh: "<<x_wh<<", y_wh: "<<y_wh<<" z_wh: "<<z_wh<<std::endl;
+    }
+}
+
+void velocity_callback(const geometry_msgs::TwistStamped& msg){
+
+  if (g_geodetic_converter.isInitialised()){
+    // myVel.twist.linear.x = msg.twist.linear.x - z_wh*msg.twist.angular.y + y_wh*msg.twist.angular.z;
+    // myVel.twist.linear.y = msg.twist.linear.y + z_wh*msg.twist.angular.x - x_wh*msg.twist.angular.z;
+    // myVel.twist.linear.z = msg.twist.linear.z - y_wh*msg.twist.angular.x + x_wh*msg.twist.angular.y;
+
+    myVel.header.stamp = ros::Time::now();
+    myVel.header.frame_id = "world";
+      
+    myVel.twist.linear.x = msg.twist.linear.x + z_wh*msg.twist.angular.y - y_wh*msg.twist.angular.z;
+    myVel.twist.linear.y = msg.twist.linear.y - z_wh*msg.twist.angular.x + x_wh*msg.twist.angular.z;
+    myVel.twist.linear.z = msg.twist.linear.z + y_wh*msg.twist.angular.x - x_wh*msg.twist.angular.y;
+
+    myVel.twist.angular.x = msg.twist.angular.x;
+    myVel.twist.angular.y = msg.twist.angular.y;
+    myVel.twist.angular.z = msg.twist.angular.z;
+
+    g_gps_velocity_pub.publish(myVel);
+  
+    // if(!use_gzstates_) {
+    //   mavVel_(0) = msg.twist.linear.x;
+    //   mavVel_(1) = msg.twist.linear.y;
+    //   mavVel_(2) = msg.twist.linear.z;
+    //   mavRate_(0) = msg.twist.angular.x;
+    //   mavRate_(1) = msg.twist.angular.y;
+    //   mavRate_(2) = msg.twist.angular.z;
+    // }
+  }
+  
+}
 
 void imu_callback(const sensor_msgs::ImuConstPtr& msg)
 {
@@ -289,7 +341,7 @@ int main(int argc, char **argv) {
           "GPS reference not ready yet, use set_gps_reference_node to set it");
       ros::Duration(2.0).sleep(); // sleep for half a second
     }
-  } while (!g_geodetic_converter.isInitialised() && ros::ok());
+  } while (!g_geodetic_converter.isInitialised() && ros::ok());// && !newHomeData);
 
   // Show reference point
   double initial_latitude, initial_longitude, initial_altitude;
@@ -305,8 +357,10 @@ int main(int argc, char **argv) {
   g_gps_transform_pub =
     nh.advertise<geometry_msgs::TransformStamped>("gps_transform", 1);
   g_gps_position_pub =
-      nh.advertise<geometry_msgs::PoseStamped>("local_position", 1);  
-  
+      nh.advertise<geometry_msgs::PoseStamped>("local_position", 1);
+
+  g_gps_velocity_pub =
+    nh.advertise<geometry_msgs::TwistStamped>("local_velocity",1);  
 
   std::string agentName = ros::this_node::getNamespace();
   agentName.erase(0,1);
@@ -318,6 +372,10 @@ int main(int argc, char **argv) {
   // ros::Subscriber home_sub = nh.subscribe("agent_home_data", 1, &home_callback);
   ros::Subscriber altitude_sub =
     nh.subscribe("external_altitude", 1, &altitude_callback);
+
+  // ros::Subscriber home_sub = nh.subscribe(agentName+"/mavros/home_position/home",1,&home_callback);  
+  // ros::Subscriber vel_sub  = nh.subscribe(agentName+"/mavros/local_position/velocity", 1, velocity_callback);
+
 
   // this continually pulls new home params if there is a new is set
   while (ros::ok()){
