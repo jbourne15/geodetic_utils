@@ -6,8 +6,6 @@ add_definitions(-std=c++11)
 find_package(catkin_simple REQUIRED)
 catkin_simple(ALL_DEPS_REQUIRED)
 
-find_package(mavros_msgs REQUIRED)
-
 find_package(Eigen REQUIRED)
 include_directories(${Eigen_INCLUDE_DIRS})
 

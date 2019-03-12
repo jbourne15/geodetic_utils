@@ -20,6 +20,7 @@
   <depend>tf</depend>
   <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
+  <depend>mavros_msgs</depend>
   <!--cmake_modules dependency required for (find Eigen) command-->
   <depend>cmake_modules</depend>
   <!--std_srvs provides the Empty service used to reset the gps reference ]-->
