@@ -331,14 +331,14 @@ int main(int argc, char **argv) {
   // Wait until GPS reference parameters are initialized.
   //  double latitude, longitude, altitude;
   do {
-    ROS_INFO("Waiting for GPS reference parameters...");
+    ROS_INFO("[geo] Waiting for GPS reference parameters...");
     if (nh.getParam("/gps_ref_latitude", H_latitude) &&
         nh.getParam("/gps_ref_longitude", H_longitude) &&
         nh.getParam("/gps_ref_altitude", H_altitude)) {
       g_geodetic_converter.initialiseReference(H_latitude, H_longitude, H_altitude);
     } else {
       ROS_INFO(
-          "GPS reference not ready yet, use set_gps_reference_node to set it");
+          "[geo] GPS reference not ready yet, use set_gps_reference_node to set it");
       ros::Duration(2.0).sleep(); // sleep for half a second
     }
   } while (!g_geodetic_converter.isInitialised() && ros::ok());// && !newHomeData);
@@ -347,7 +347,7 @@ int main(int argc, char **argv) {
   double initial_latitude, initial_longitude, initial_altitude;
   g_geodetic_converter.getReference(&initial_latitude, &initial_longitude,
                                     &initial_altitude);
-  ROS_INFO("GPS reference initialized correctly %f, %f, %f", initial_latitude,
+  ROS_INFO("[geo] GPS reference initialized correctly %f, %f, %f", initial_latitude,
            initial_longitude, initial_altitude);
 
 
