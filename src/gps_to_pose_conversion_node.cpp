@@ -23,7 +23,7 @@
 
 bool g_is_sim;
 bool g_publish_pose;
-sensor_msgs::Range height;
+sensor_msgs::Range height, height_prev;
 bool newHeightData = false;
 bool newHomeData   = false;
 
@@ -128,9 +128,11 @@ void altitude_callback(const std_msgs::Float64ConstPtr& msg)
 // }
 
 void dist_callback(const sensor_msgs::Range &msg){
-  height = msg;
-  newHeightData = true;
-  ROS_INFO_ONCE("using external height in geodetic node!");
+  if (std::fabs((height_prev.range-msg.range))<10){
+    height = msg;
+    newHeightData = true;
+    ROS_INFO_ONCE("using external height in geodetic node!");
+  }
 }
 
 void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
@@ -201,6 +203,7 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
   if (newHeightData){
     pose_msg->pose.pose.position.z = height.range;
     position_msg.pose.position.z = height.range;
+    height_prev = height;
   }
   else if (g_got_altitude) {
     pose_msg->pose.pose.position.z = g_latest_altitude_msg.data;
@@ -282,6 +285,8 @@ int main(int argc, char **argv) {
   ros::init(argc, argv, "gps_to_pose_conversion_node");
   ros::NodeHandle nh;
   ros::NodeHandle pnh("~");
+
+  height_prev.range=0;
   
   // ros::param::param("~add_noise", add_noise, true);
   // ros::param::param("~noiseCov", noiseCov, 1.0);
