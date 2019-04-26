@@ -21,11 +21,23 @@
 
 #include <mavros_msgs/HomePosition.h>
 
+
+struct fir_filter
+{
+  double hist[10];
+  double coef[10];
+  double out;
+  int order;
+};
+
+
 bool g_is_sim;
 bool g_publish_pose;
 sensor_msgs::Range height, height_prev;
 bool newHeightData = false;
 bool newHomeData   = false;
+
+fir_filter height_filter = {.hist={0}, .coef={1/4.0,1/4.0,1/4.0,1/4.0}, .out=0, .order=4};
 
 geodetic_converter::GeodeticConverter g_geodetic_converter;
 sensor_msgs::Imu g_latest_imu_msg;
@@ -110,6 +122,18 @@ void velocity_callback(const geometry_msgs::TwistStamped& msg){
   
 }
 
+void updateFIR(struct fir_filter &f, double input){
+  for (int i=f.order-1; i>0; i--){
+    f.hist[i]=f.hist[i-1];
+  }
+  f.hist[0]=input;
+
+  f.out=0;
+  for(int i=0;i<f.order; i++){
+    f.out=f.out+f.coef[i]*f.hist[i];
+  }
+}
+
 void imu_callback(const sensor_msgs::ImuConstPtr& msg)
 {
   g_latest_imu_msg = *msg;
@@ -128,8 +152,10 @@ void altitude_callback(const std_msgs::Float64ConstPtr& msg)
 // }
 
 void dist_callback(const sensor_msgs::Range &msg){
-  if (std::fabs((height_prev.range-msg.range))<10){
+  if (std::fabs((height_prev.range-msg.range))<10){    
     height = msg;
+    updateFIR(height_filter, height.range);
+    height.range = height_filter.out;
     newHeightData = true;
     ROS_INFO_ONCE("using external height in geodetic node!");
   }
