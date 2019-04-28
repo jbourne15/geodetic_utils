@@ -37,15 +37,16 @@ sensor_msgs::Range height, height_prev;
 bool newHeightData = false;
 bool newHomeData   = false;
 
-fir_filter height_filter = {.hist={0}, .coef={1/4.0,1/4.0,1/4.0,1/4.0}, .out=0, .order=4};
+fir_filter height_filter = {.hist={0}, .coef={1.0/4.0,1.0/4.0,1.0/4.0,1.0/4.0}, .out=0, .order=4};
 
 geodetic_converter::GeodeticConverter g_geodetic_converter;
 sensor_msgs::Imu g_latest_imu_msg;
 std_msgs::Float64 g_latest_altitude_msg;
 mavros_msgs::HomePosition home;
 geometry_msgs::TwistStamped myVel;
+geometry_msgs::PoseStamped g_latest_pose_msg;
 
-bool g_got_imu;
+bool g_got_imu, g_got_pose;
 bool g_got_altitude;
 // std::mt19937 generator;
 // std::normal_distribution<double> Gsampler;
@@ -140,6 +141,13 @@ void imu_callback(const sensor_msgs::ImuConstPtr& msg)
   g_got_imu = true;
 }
 
+void local_callback(const geometry_msgs::PoseStampedConstPtr& msg)
+{
+  g_latest_pose_msg = *msg;
+  g_got_pose = true;
+}
+
+
 void altitude_callback(const std_msgs::Float64ConstPtr& msg)
 {
   // Only the z value in the PointStamped message is used
@@ -226,15 +234,20 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
   position_msg.pose.orientation = pose_msg->pose.pose.orientation;
   
   // If external altitude messages received, include in pose and position messages
-  if (newHeightData){
-    pose_msg->pose.pose.position.z = height.range;
-    position_msg.pose.position.z = height.range;
-    height_prev = height;
+  if (g_got_pose){
+    pose_msg->pose.pose.position.z = g_latest_pose_msg.pose.position.z;
+    position_msg.pose.position.z = g_latest_pose_msg.pose.position.z;    
   }
-  else if (g_got_altitude) {
-    pose_msg->pose.pose.position.z = g_latest_altitude_msg.data;
-    position_msg.pose.position.z = g_latest_altitude_msg.data;
-  }
+
+  // if (newHeightData){
+  //   pose_msg->pose.pose.position.z = height.range;
+  //   position_msg.pose.position.z = height.range;
+  //   height_prev = height;
+  // }
+  // else if (g_got_altitude) {
+  //   pose_msg->pose.pose.position.z = g_latest_altitude_msg.data;
+  //   position_msg.pose.position.z = g_latest_altitude_msg.data;
+  // }
 
   pose_msg->pose.covariance.assign(0);
 
@@ -287,18 +300,28 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
 					 g_latest_imu_msg.orientation.y,
 					 g_latest_imu_msg.orientation.z,
 					 g_latest_imu_msg.orientation.w));
-    if (newHeightData) {
-      // transform.setOrigin(tf::Vector3(x, y, height.range));
-      // account for orientation
-      Eigen::Quaterniond qAtt_(g_latest_imu_msg.orientation.w, g_latest_imu_msg.orientation.x, g_latest_imu_msg.orientation.y, g_latest_imu_msg.orientation.z); 
-      Eigen::Matrix3d R = qAtt_.normalized().toRotationMatrix();
-      Eigen::Vector3d ht(0, 0, height.range);
-      Eigen::Vector3d zz(0,0,1); // get only z component
-      transform.setOrigin(tf::Vector3(x, y, (R.transpose()*ht).dot(zz)));
+
+    if (g_got_pose){
+       Eigen::Quaterniond qAtt_(g_latest_imu_msg.orientation.w, g_latest_imu_msg.orientation.x, g_latest_imu_msg.orientation.y, g_latest_imu_msg.orientation.z);
+       transform.setOrigin(tf::Vector3(x,y,g_latest_pose_msg.pose.position.z));
     }
     else{
       transform.setOrigin(tf::Vector3(x, y, z));	
     }
+
+    // if (newHeightData) {
+    //   // transform.setOrigin(tf::Vector3(x, y, height.range));
+    //   // account for orientation
+    //   Eigen::Quaterniond qAtt_(g_latest_imu_msg.orientation.w, g_latest_imu_msg.orientation.x, g_latest_imu_msg.orientation.y, g_latest_imu_msg.orientation.z); 
+    //   Eigen::Matrix3d R = qAtt_.normalized().toRotationMatrix();
+    //   Eigen::Vector3d ht(0, 0, height.range);
+    //   Eigen::Vector3d zz(0,0,1); // get only z component
+    //   transform.setOrigin(tf::Vector3(x, y, (R.transpose()*ht).dot(zz)));
+    // }
+    // else{
+      // transform.setOrigin(tf::Vector3(x, y, z));	
+    // }
+
     p_tf_broadcaster->sendTransform(tf::StampedTransform(transform,
 							 ros::Time::now(),
 							 g_frame_id,
@@ -403,6 +426,9 @@ int main(int argc, char **argv) {
   // ros::Subscriber home_sub = nh.subscribe("agent_home_data", 1, &home_callback);
   ros::Subscriber altitude_sub =
     nh.subscribe("external_altitude", 1, &altitude_callback);
+
+  ros::Subscriber local_sub =
+    nh.subscribe(agentName+"/mavros/local_position/pose", 1, &local_callback);
 
   // ros::Subscriber home_sub = nh.subscribe(agentName+"/mavros/home_position/home",1,&home_callback);  
   // ros::Subscriber vel_sub  = nh.subscribe(agentName+"/mavros/local_position/velocity", 1, velocity_callback);
