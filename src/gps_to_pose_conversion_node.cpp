@@ -232,22 +232,62 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
   position_msg.header.frame_id = g_frame_id;
   position_msg.pose.position = pose_msg->pose.pose.position;
   position_msg.pose.orientation = pose_msg->pose.pose.orientation;
+
+
+
+    // Fill up TF broadcaster
+  if (g_got_imu){
+    tf::Transform transform;
+    transform.setRotation(tf::Quaternion(g_latest_imu_msg.orientation.x,
+					 g_latest_imu_msg.orientation.y,
+					 g_latest_imu_msg.orientation.z,
+					 g_latest_imu_msg.orientation.w));
+    /*
+    if (g_got_pose){
+       Eigen::Quaterniond qAtt_(g_latest_imu_msg.orientation.w, g_latest_imu_msg.orientation.x, g_latest_imu_msg.orientation.y, g_latest_imu_msg.orientation.z);
+       transform.setOrigin(tf::Vector3(x,y,g_latest_pose_msg.pose.position.z));
+       
+    }
+    else{
+      transform.setOrigin(tf::Vector3(x, y, z));	
+    }
+    */
+
+    if (newHeightData) {
+       // transform.setOrigin(tf::Vector3(x, y, height.range));
+       // account for orientation
+       Eigen::Quaterniond qAtt_(g_latest_imu_msg.orientation.w, g_latest_imu_msg.orientation.x, g_latest_imu_msg.orientation.y, g_latest_imu_msg.orientation.z); 
+       Eigen::Matrix3d R = qAtt_.normalized().toRotationMatrix();
+       Eigen::Vector3d ht(0, 0, height.range);
+       Eigen::Vector3d zz(0,0,1); // get only z component
+       height.range=(R.transpose()*ht).dot(zz);
+       transform.setOrigin(tf::Vector3(x, y, height.range);       
+     }
+     else{
+       transform.setOrigin(tf::Vector3(x, y, z));	
+     }
+
+    p_tf_broadcaster->sendTransform(tf::StampedTransform(transform,
+							 ros::Time::now(),
+							 g_frame_id,
+							 g_tf_child_frame_id));
+  }
   
   // If external altitude messages received, include in pose and position messages
-  if (g_got_pose){
-    pose_msg->pose.pose.position.z = g_latest_pose_msg.pose.position.z;
-    position_msg.pose.position.z = g_latest_pose_msg.pose.position.z;    
-  }
+  //if (g_got_pose){
+  //  pose_msg->pose.pose.position.z = g_latest_pose_msg.pose.position.z;
+  //  position_msg.pose.position.z = g_latest_pose_msg.pose.position.z;    
+  //}
 
-  // if (newHeightData){
-  //   pose_msg->pose.pose.position.z = height.range;
-  //   position_msg.pose.position.z = height.range;
-  //   height_prev = height;
-  // }
-  // else if (g_got_altitude) {
-  //   pose_msg->pose.pose.position.z = g_latest_altitude_msg.data;
-  //   position_msg.pose.position.z = g_latest_altitude_msg.data;
-  // }
+  if (newHeightData){
+    pose_msg->pose.pose.position.z = height.range;
+    position_msg.pose.position.z = height.range;
+    height_prev = height;
+  }
+  else if (g_got_altitude) {
+     pose_msg->pose.pose.position.z = g_latest_altitude_msg.data;
+     position_msg.pose.position.z = g_latest_altitude_msg.data;
+  }
 
   pose_msg->pose.covariance.assign(0);
 
@@ -293,40 +333,6 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
   g_gps_pose_pub.publish(pose_msg);
   g_gps_position_pub.publish(position_msg); //local_position publisher
 
-  // Fill up TF broadcaster
-  if (g_got_imu){
-    tf::Transform transform;
-    transform.setRotation(tf::Quaternion(g_latest_imu_msg.orientation.x,
-					 g_latest_imu_msg.orientation.y,
-					 g_latest_imu_msg.orientation.z,
-					 g_latest_imu_msg.orientation.w));
-
-    if (g_got_pose){
-       Eigen::Quaterniond qAtt_(g_latest_imu_msg.orientation.w, g_latest_imu_msg.orientation.x, g_latest_imu_msg.orientation.y, g_latest_imu_msg.orientation.z);
-       transform.setOrigin(tf::Vector3(x,y,g_latest_pose_msg.pose.position.z));
-    }
-    else{
-      transform.setOrigin(tf::Vector3(x, y, z));	
-    }
-
-    // if (newHeightData) {
-    //   // transform.setOrigin(tf::Vector3(x, y, height.range));
-    //   // account for orientation
-    //   Eigen::Quaterniond qAtt_(g_latest_imu_msg.orientation.w, g_latest_imu_msg.orientation.x, g_latest_imu_msg.orientation.y, g_latest_imu_msg.orientation.z); 
-    //   Eigen::Matrix3d R = qAtt_.normalized().toRotationMatrix();
-    //   Eigen::Vector3d ht(0, 0, height.range);
-    //   Eigen::Vector3d zz(0,0,1); // get only z component
-    //   transform.setOrigin(tf::Vector3(x, y, (R.transpose()*ht).dot(zz)));
-    // }
-    // else{
-      // transform.setOrigin(tf::Vector3(x, y, z));	
-    // }
-
-    p_tf_broadcaster->sendTransform(tf::StampedTransform(transform,
-							 ros::Time::now(),
-							 g_frame_id,
-							 g_tf_child_frame_id));
-  }
 }
 
 int main(int argc, char **argv) {
