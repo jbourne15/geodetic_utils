@@ -261,7 +261,7 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
        Eigen::Vector3d ht(0, 0, height.range);
        Eigen::Vector3d zz(0,0,1); // get only z component
        height.range=(R.transpose()*ht).dot(zz);
-       transform.setOrigin(tf::Vector3(x, y, height.range);       
+       transform.setOrigin(tf::Vector3(x, y, height.range));
      }
      else{
        transform.setOrigin(tf::Vector3(x, y, z));	
