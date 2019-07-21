@@ -37,6 +37,10 @@ sensor_msgs::Range height, height_prev;
 bool newHeightData = false;
 bool newHomeData   = false;
 
+bool prevInit=true;
+double x_prev=-1000;
+double y_prev=-1000;
+
 fir_filter height_filter = {.hist={0}, .coef={1.0/4.0,1.0/4.0,1.0/4.0,1.0/4.0}, .out=0, .order=4};
 
 geodetic_converter::GeodeticConverter g_geodetic_converter;
@@ -192,6 +196,22 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
 
   double x, y, z;
   g_geodetic_converter.geodetic2Enu(msg->latitude, msg->longitude, msg->altitude, &x, &y, &z);
+
+  if (prevInit){
+    x_prev=x;
+    y_prev=y;
+    prevInit=false;
+  }
+
+  if (fabs(x-x_prev)>4 || fabs(y-y_prev)>4){
+    // skipping bad gps data
+    ROS_WARN("skipping bad gps");
+    return;
+  }
+  else{
+    x_prev=x;
+    y_prev=y;
+  }
 
   // (NWU -> ENU) for simulation
   if (g_is_sim) {
