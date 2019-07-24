@@ -176,6 +176,8 @@ void dist_callback(const sensor_msgs::Range &msg){
 void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
 {
 
+  //auto s1 = std::chrono::system_clock::now();
+
   //ROS_INFO_THROTTLE(1, "GOT GPS DATA");
   if (!g_got_imu) {
     ROS_WARN_STREAM_THROTTLE(1, "No IMU data yet");
@@ -244,6 +246,7 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
   pose_msg->pose.pose.position.z = z;
   pose_msg->pose.pose.orientation = g_latest_imu_msg.orientation;
 
+  /*
   // Fill up position message
   //  geometry_msgs::PoseStampedPtr position_msg(
   //    new geometry_msgs::PoseStamped);
@@ -252,7 +255,7 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
   position_msg.header.frame_id = g_frame_id;
   position_msg.pose.position = pose_msg->pose.pose.position;
   position_msg.pose.orientation = pose_msg->pose.pose.orientation;
-
+  */
 
 
     // Fill up TF broadcaster
@@ -301,12 +304,12 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
 
   if (newHeightData){
     pose_msg->pose.pose.position.z = height.range;
-    position_msg.pose.position.z = height.range;
+    //position_msg.pose.position.z = height.range;
     height_prev = height;
   }
   else if (g_got_altitude) {
      pose_msg->pose.pose.position.z = g_latest_altitude_msg.data;
-     position_msg.pose.position.z = g_latest_altitude_msg.data;
+     //position_msg.pose.position.z = g_latest_altitude_msg.data;
   }
 
   pose_msg->pose.covariance.assign(0);
@@ -339,6 +342,7 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
   }
 
 
+  /*
   // Fill up transform message
   geometry_msgs::TransformStampedPtr transform_msg(
       new geometry_msgs::TransformStamped);
@@ -348,10 +352,18 @@ void gps_callback(const sensor_msgs::NavSatFixConstPtr& msg)
   transform_msg->transform.translation.y = y;
   transform_msg->transform.translation.z = z;
   transform_msg->transform.rotation = g_latest_imu_msg.orientation;
+  */
 
-  g_gps_transform_pub.publish(transform_msg);
+  //g_gps_transform_pub.publish(transform_msg);
   g_gps_pose_pub.publish(pose_msg);
-  g_gps_position_pub.publish(position_msg); //local_position publisher
+  //g_gps_position_pub.publish(position_msg); //local_position publisher  
+
+  /*
+  auto e1 = std::chrono::system_clock::now();
+  std::chrono::duration<double> elapsed_seconds=e1-s1;
+
+  std::cout<<"gps_pose time: "<<elapsed_seconds.count()<<std::endl;
+  */
 
 }
 
@@ -434,13 +446,13 @@ int main(int argc, char **argv) {
   // Initialize publishers
   g_gps_pose_pub =
     nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("gps_pose", 1);
-  g_gps_transform_pub =
-    nh.advertise<geometry_msgs::TransformStamped>("gps_transform", 1);
-  g_gps_position_pub =
-      nh.advertise<geometry_msgs::PoseStamped>("local_position", 1);
+  //g_gps_transform_pub =
+  //nh.advertise<geometry_msgs::TransformStamped>("gps_transform", 1);
+  //g_gps_position_pub =
+  //nh.advertise<geometry_msgs::PoseStamped>("local_position", 1);
 
-  g_gps_velocity_pub =
-    nh.advertise<geometry_msgs::TwistStamped>("local_velocity",1);  
+  //g_gps_velocity_pub =
+  //nh.advertise<geometry_msgs::TwistStamped>("local_velocity",1);  
 
   std::string agentName = ros::this_node::getNamespace();
   agentName.erase(0,1);
@@ -460,22 +472,6 @@ int main(int argc, char **argv) {
   // ros::Subscriber vel_sub  = nh.subscribe(agentName+"/mavros/local_position/velocity", 1, velocity_callback);
 
 
-  // this continually pulls new home params if there is a new is set
-  while (ros::ok()){
-    double latitude, longitude, altitude;
-    nh.getParam("/gps_ref_latitude", latitude);
-    nh.getParam("/gps_ref_longitude", longitude);
-    //nh.getParam("/gps_ref_altitude", altitude);
-
-    //std::cout<<"lat: "<<latitude<<", "<<H_latitude<<", long: "<<longitude<<", "<<H_longitude<<std::endl;
-    
-    if (latitude != H_latitude || longitude != H_longitude){
-      g_geodetic_converter.initialiseReference(latitude, longitude, H_altitude);
-      ROS_WARN("[geo] got home data, reseting target");
-      H_latitude = latitude;
-      H_longitude = longitude;
-    }
-    ros::spinOnce();
-  }
-
+  ros::spin();
+  
 }
